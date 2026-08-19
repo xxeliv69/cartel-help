@@ -70,10 +70,9 @@
                     </button>
                 </div>
 
-                <!-- Admin Authentication UI -->
+                <!-- Admin PIN Authentication UI (이메일 입력창 대신 PIN 번호 입력으로 변경) -->
                 <div id="auth-section" class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-700">
-                    <input type="email" id="admin-email" placeholder="관리자 이메일" class="bg-slate-950 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs text-white w-32 focus:outline-none focus:border-indigo-500">
-                    <input type="password" id="admin-password" placeholder="비밀번호" class="bg-slate-950 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs text-white w-24 focus:outline-none focus:border-indigo-500">
+                    <input type="password" id="admin-pin-input" placeholder="관리자 PIN 번호" class="bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-lg text-xs text-white w-32 focus:outline-none focus:border-indigo-500">
                     <button id="login-btn" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors whitespace-nowrap">로그인</button>
                     <button id="logout-btn" class="hidden bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-300 transition-colors whitespace-nowrap">로그아웃</button>
                 </div>
@@ -116,6 +115,7 @@
                         <!-- Populated by JS -->
                     </select>
                 </div>
+                <!-- 커스텀 주간 추가 버튼에 admin-only 적용 -->
                 <button onclick="openCustomWeekModal()" class="admin-only hidden px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
                     <i class="fa-solid fa-plus"></i> 커스텀 주간 추가
                 </button>
@@ -307,6 +307,7 @@
                         </h2>
                         <p class="text-xs text-slate-400 mt-0.5">이름이 자주 바뀌는 제작자들을 위해 언제든지 수정할 수 있으며, 전담 품목 메모 및 순위 제외 설정을 관리할 수 있습니다.</p>
                     </div>
+                    <!-- 팀원 추가 버튼에 admin-only 적용 -->
                     <button onclick="openTeamMemberModal()" class="admin-only hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-lg shadow-blue-600/20">
                         <i class="fa-solid fa-user-plus"></i> 팀원 추가하기
                     </button>
@@ -380,6 +381,7 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1.5"><i class="fa-solid fa-note-sticky mr-1 text-purple-400"></i> 메모</label>
                     <textarea id="team-memo" rows="2" placeholder="특이사항이나 담당 품목을 입력하세요..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 resize-none"></textarea>
                 </div>
+                <!-- 순위 표시 안 함 체크박스 추가 -->
                 <div class="flex items-center gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-700/80">
                     <input type="checkbox" id="team-exclude-ranking" class="w-4 h-4 text-amber-600 bg-slate-800 border-slate-700 rounded focus:ring-amber-500 cursor-pointer">
                     <label for="team-exclude-ranking" class="text-xs font-medium text-slate-300 cursor-pointer">
@@ -424,13 +426,12 @@
         </div>
     </div>
 
-    <!-- Firebase Realtime Sync & Auth Module Script -->
+    <!-- Firebase Realtime Sync Module Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot, setDoc, doc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Firebase Configuration (Connected to user project)[cite: 3]
+        // Firebase Configuration (Connected to user project)
         const firebaseConfig = {
             apiKey: "AIzaSyDJWODIgSiitkleyFXEougg1BAltyO4AuM",
             authDomain: "cartel-tracker.firebaseapp.com",
@@ -443,9 +444,9 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app);
 
-        const ADMIN_UID = "Gd8jfJQWPiRjqkzsHPSsPtq3fwG2"; // 이메일 대신 고정된 관리자 고유 UID
+        // 관리자로 인정할 PIN 번호 설정 (원하시는 숫자로 변경 가능합니다)
+        const ADMIN_PIN = "1234"; 
 
         // State Management
         window.currentRole = 'dashboard';
@@ -454,45 +455,50 @@
         window.teamMembers = [];
         window.records = [];
         window.selectedRecordId = null;
+        window.isAdminLoggedIn = localStorage.getItem('cartel_admin_auth') === 'true';
 
-        // Firebase Auth Event Listeners
-        document.getElementById('login-btn').addEventListener('click', async () => {
-            const email = document.getElementById('admin-email').value;
-            const password = document.getElementById('admin-password').value;
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                showModal('로그인 성공', '관리자로 정상 로그인되었습니다.', 'success');
-            } catch (error) {
-                showModal('로그인 실패', '이메일 또는 비밀번호를 확인해주세요: ' + error.message, 'warning');
+        // PIN 번호 기반 관리자 로그인 이벤트 리스너
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const pinInput = document.getElementById('admin-pin-input').value;
+            if (pinInput === ADMIN_PIN) {
+                window.isAdminLoggedIn = true;
+                localStorage.setItem('cartel_admin_auth', 'true');
+                showModal('로그인 성공', '관리자 권한이 활성화되었습니다.', 'success');
+                updateAdminUI();
+            } else {
+                showModal('로그인 실패', '올바른 관리자 PIN 번호를 입력해주세요.', 'warning');
             }
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => {
-            signOut(auth);
-            showModal('로그아웃', '관리자 계정에서 로그아웃되었습니다.', 'info');
+            window.isAdminLoggedIn = false;
+            localStorage.removeItem('cartel_admin_auth');
+            showModal('로그아웃', '관리자 권한이 해제되었습니다.', 'info');
+            updateAdminUI();
         });
 
-        onAuthStateChanged(auth, (user) => {
+        function updateAdminUI() {
             const adminElements = document.querySelectorAll('.admin-only');
-            
-            // 이메일 검증 대신 고유 UID(ADMIN_UID) 검증으로 고정
-            if (user && user.uid === ADMIN_UID) {
-                document.getElementById('admin-email').classList.add('hidden');
-                document.getElementById('admin-password').classList.add('hidden');
-                document.getElementById('login-btn').classList.add('hidden');
-                document.getElementById('logout-btn').classList.remove('hidden');
+            const pinInputEl = document.getElementById('admin-pin-input');
+            const loginBtnEl = document.getElementById('login-btn');
+            const logoutBtnEl = document.getElementById('logout-btn');
 
+            if (window.isAdminLoggedIn) {
+                if (pinInputEl) pinInputEl.classList.add('hidden');
+                if (loginBtnEl) loginBtnEl.classList.add('hidden');
+                if (logoutBtnEl) logoutBtnEl.classList.remove('hidden');
                 adminElements.forEach(el => el.classList.remove('hidden'));
             } else {
-                document.getElementById('admin-email').classList.remove('hidden');
-                document.getElementById('admin-password').classList.remove('hidden');
-                document.getElementById('login-btn').classList.remove('hidden');
-                document.getElementById('logout-btn').classList.add('hidden');
-
+                if (pinInputEl) {
+                    pinInputEl.classList.remove('hidden');
+                    pinInputEl.value = '';
+                }
+                if (loginBtnEl) loginBtnEl.classList.remove('hidden');
+                if (logoutBtnEl) logoutBtnEl.classList.add('hidden');
                 adminElements.forEach(el => el.classList.add('hidden'));
             }
             updateUI();
-        });
+        }
 
         function generate2026Weeks() {
             const generated = [];
@@ -575,6 +581,7 @@
         window.onload = async function() {
             await initDefaultDataIfNeeded();
             setupFirebaseListeners();
+            updateAdminUI();
             switchRole('dashboard');
         };
 
@@ -773,14 +780,12 @@
                 return;
             }
 
-            // 고유 UID 기준으로 관리자 권한 체크
-            const isAdmin = auth.currentUser && auth.currentUser.uid === ADMIN_UID;
-
             filtered.forEach(r => {
                 const member = window.teamMembers.find(m => m.id === r.producerId) || { nickname: '알 수 없음', memo: '-' };
                 const total = r.weed + r.cocaine + r.lsd;
 
-                const actionButtons = isAdmin ? `
+                // 관리자 로그인 상태일 때만 수정/삭제 버튼 표시
+                const actionButtons = window.isAdminLoggedIn ? `
                     <button onclick="editRecord('${r.id}')" class="text-blue-400 hover:text-blue-300 p-1" title="수정"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button onclick="deleteRecord('${r.id}')" class="text-rose-400 hover:text-rose-300 p-1" title="삭제"><i class="fa-solid fa-trash"></i></button>
                 ` : `<span class="text-slate-600 text-[10px]">권한 없음</span>`;
@@ -802,6 +807,7 @@
         }
 
         window.editRecord = function(id) {
+            if (!window.isAdminLoggedIn) return;
             const rec = window.records.find(r => r.id === id);
             if (!rec) return;
 
@@ -822,6 +828,7 @@
         }
 
         window.deleteRecord = async function(id) {
+            if (!window.isAdminLoggedIn) return;
             await deleteDoc(doc(db, 'records', id));
             showModal('삭제 완료', '기록이 클라우드에서 삭제되었습니다.', 'info');
         }
@@ -995,9 +1002,6 @@
                 return;
             }
 
-            // 고유 UID 기준으로 관리자 권한 체크
-            const isAdmin = auth.currentUser && auth.currentUser.uid === ADMIN_UID;
-
             window.teamMembers.forEach(m => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition';
@@ -1006,7 +1010,7 @@
                     ? `<span class="ml-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[10px] font-bold"><i class="fa-solid fa-eye-slash mr-1"></i>순위 제외</span>` 
                     : '';
 
-                const actionButtons = isAdmin ? `
+                const actionButtons = window.isAdminLoggedIn ? `
                     <button onclick="openTeamMemberModal('${m.id}')" class="text-blue-400 hover:text-blue-300 p-1" title="수정"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button onclick="deleteTeamMember('${m.id}')" class="text-rose-400 hover:text-rose-300 p-1" title="삭제"><i class="fa-solid fa-trash"></i></button>
                 ` : `<span class="text-slate-600 text-[10px]">권한 없음</span>`;
@@ -1061,6 +1065,7 @@
         }
 
         window.openTeamMemberModal = function(id = null) {
+            if (!window.isAdminLoggedIn) return;
             const modal = document.getElementById('team-modal');
             const title = document.getElementById('team-modal-title');
             
@@ -1101,6 +1106,7 @@
 
         window.handleTeamFormSubmit = async function(e) {
             e.preventDefault();
+            if (!window.isAdminLoggedIn) return;
             const editId = document.getElementById('team-edit-id').value;
             const code = document.getElementById('team-code').value.trim();
             const nickname = document.getElementById('team-nickname').value.trim();
@@ -1126,11 +1132,13 @@
         }
 
         window.deleteTeamMember = async function(id) {
+            if (!window.isAdminLoggedIn) return;
             await deleteDoc(doc(db, 'teamMembers', id));
             showModal('삭제 완료', '팀원이 삭제되었습니다.', 'info');
         }
 
         window.openCustomWeekModal = function() {
+            if (!window.isAdminLoggedIn) return;
             const modal = document.getElementById('week-modal');
             if (modal) {
                 modal.classList.remove('hidden');
@@ -1148,6 +1156,7 @@
 
         window.handleCustomWeekSubmit = async function(e) {
             e.preventDefault();
+            if (!window.isAdminLoggedIn) return;
             const name = document.getElementById('custom-week-name').value;
             const startInput = document.getElementById('custom-week-start').value;
             const endInput = document.getElementById('custom-week-end').value;
