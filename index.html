@@ -33,6 +33,12 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
+    <!-- Cloud Sync Status Bar -->
+    <div id="sync-status-bar" class="bg-emerald-950/80 border-b border-emerald-800/50 py-1.5 px-4 text-center text-xs text-emerald-300 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-cloud text-emerald-400 animate-pulse"></i>
+        <span>실시간 클라우드 동기화 연결 중... (모든 판매직 화면 공유 활성화)</span>
+    </div>
+
     <header class="bg-cardBg border-b border-slate-800 sticky top-0 z-50 shadow-md">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
@@ -64,15 +70,6 @@
     </header>
 
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
-
-        <!-- Sync Status Indicator Banner -->
-        <div id="sync-banner" class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 mb-6 flex items-center justify-between text-xs">
-            <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" id="sync-dot"></span>
-                <span class="text-slate-300 font-medium" id="sync-status-text">클라우드 실시간 동기화 연결 중...</span>
-            </div>
-            <div class="text-slate-400 font-mono" id="sync-user-id-display">접속 ID 로딩 중...</div>
-        </div>
 
         <!-- Notification Toast Modal -->
         <div id="custom-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
@@ -113,6 +110,7 @@
             </div>
         </section>
 
+        <!-- RECORD INPUT VIEW -->
         <div id="view-entry" class="space-y-6 hidden">
             <div class="bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-800">
@@ -188,6 +186,7 @@
             </div>
         </div>
 
+        <!-- DASHBOARD & RANKINGS VIEW -->
         <div id="view-dashboard" class="space-y-6">
             <!-- Top Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -233,6 +232,39 @@
                         <div class="bg-pink-600/20 text-pink-400 p-3 rounded-xl border border-pink-500/30">
                             <i class="fa-solid fa-pills text-lg"></i>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settlement Calculator Section -->
+            <div class="bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-3 border-b border-slate-800">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-amber-400"></i> 입금 정산 계산기 (10,000개당 20억)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">제조 개수를 입력하면 상대에게 입금해야 할 금액을 자동으로 계산해 줍니다.</p>
+                    </div>
+                    <button onclick="fillTotalProductionToCalc()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> 선택 주간 총 생산량 불러오기
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">입력 개수 (개)</label>
+                        <input type="number" id="calc-input-qty" min="0" value="0" oninput="calculatePayout()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div class="md:col-span-5">
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">입금 정산 금액</label>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="calc-output-result" readonly value="0원 (0억)" class="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-amber-400 focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="md:col-span-3 flex items-end pt-2 md:pt-0">
+                        <button onclick="copyPayoutResult()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-amber-600/20 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-copy"></i> 입금 금액 복사하기
+                        </button>
                     </div>
                 </div>
             </div>
@@ -374,24 +406,31 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs and App Logic inside a single type="module" script block -->
+    <!-- Firebase Realtime Sync Module Script -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, setDoc, doc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Configuration (Connected to user project)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDJWODIgSiitkleyFXEougg1BAltyO4AuM",
+            authDomain: "cartel-tracker.firebaseapp.com",
+            projectId: "cartel-tracker",
+            storageBucket: "cartel-tracker.firebasestorage.app",
+            messagingSenderId: "603386498743",
+            appId: "1:603386498743:web:999cca44cbec4e237a0732",
+            measurementId: "G-VG15L9N4LD"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
         // State Management
-        let currentRole = 'dashboard';
-        let weeks = [];
-        let selectedWeekId = '';
-        let teamMembers = [];
-        let records = [];
-
-        let db, auth, userId;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cartel-production-tracker-2026';
-        let unsubWeeks = null;
-        let unsubTeam = null;
-        let unsubRecords = null;
+        window.currentRole = 'dashboard';
+        window.weeks = [];
+        window.selectedWeekId = '';
+        window.teamMembers = [];
+        window.records = [];
 
         function generate2026Weeks() {
             const generated = [];
@@ -415,156 +454,89 @@
             return generated;
         }
 
-        function formatDate(date) {
+        window.formatDate = function(date) {
             let m = String(date.getMonth() + 1).padStart(2, '0');
             let d = String(date.getDate()).padStart(2, '0');
             return `${date.getFullYear()}.${m}.${d}`;
         }
 
-        async function initFirebaseSync() {
-            try {
-                if (typeof __firebase_config !== 'undefined') {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-
-                    userId = auth.currentUser?.uid || crypto.randomUUID();
-                    document.getElementById('sync-user-id-display').textContent = `접속 ID: ${userId.substring(0, 8)}...`;
-                    document.getElementById('sync-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
-                    document.getElementById('sync-status-text').textContent = '클라우드 실시간 동기화 연결됨 (모든 판매직 공유 중)';
-
-                    setupRealtimeListeners();
-                } else {
-                    fallbackToLocalStorage();
+        // Initialize default weeks if not present in Firestore
+        async function initDefaultDataIfNeeded() {
+            const weeksSnap = await getDocs(collection(db, 'weeks'));
+            if (weeksSnap.empty) {
+                const defaultWeeks = generate2026Weeks();
+                for (let w of defaultWeeks) {
+                    await setDoc(doc(db, 'weeks', w.id), w);
                 }
-            } catch (err) {
-                console.error("Firebase initialization failed, falling back to local storage:", err);
-                fallbackToLocalStorage();
             }
         }
 
-        function fallbackToLocalStorage() {
-            document.getElementById('sync-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
-            document.getElementById('sync-status-text').textContent = '로컬 모드로 작동 중 (오프라인)';
-            document.getElementById('sync-user-id-display').textContent = 'GitHub 정적 모드';
-            loadDataLocal();
-            populateWeekSelector();
+        // Realtime Listeners
+        function setupFirebaseListeners() {
+            // 1. Listen to Weeks
+            onSnapshot(collection(db, 'weeks'), (snapshot) => {
+                window.weeks = [];
+                snapshot.forEach(docSnap => {
+                    window.weeks.push(docSnap.data());
+                });
+                // Sort by week number or id
+                window.weeks.sort((a, b) => {
+                    if (a.id.startsWith('week-') && b.id.startsWith('week-')) {
+                        return parseInt(a.id.replace('week-', '')) - parseInt(b.id.replace('week-', ''));
+                    }
+                    return 0;
+                });
+                if (window.weeks.length > 0 && !window.selectedWeekId) {
+                    window.selectedWeekId = window.weeks[0].id;
+                }
+                populateWeekSelector();
+                updateUI();
+            });
+
+            // 2. Listen to Team Members
+            onSnapshot(collection(db, 'teamMembers'), (snapshot) => {
+                window.teamMembers = [];
+                snapshot.forEach(docSnap => {
+                    window.teamMembers.push(docSnap.data());
+                });
+                updateUI();
+            });
+
+            // 3. Listen to Records
+            onSnapshot(collection(db, 'records'), (snapshot) => {
+                window.records = [];
+                snapshot.forEach(docSnap => {
+                    window.records.push(docSnap.data());
+                });
+                updateUI();
+                const statusBar = document.getElementById('sync-status-bar');
+                if (statusBar) {
+                    statusBar.innerHTML = '<i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i><span>실시간 클라우드 동기화 연결됨 (모든 판매원 실시간 공유 중)</span>';
+                }
+            });
+        }
+
+        // Startup
+        window.onload = async function() {
+            await initDefaultDataIfNeeded();
+            setupFirebaseListeners();
             switchRole('dashboard');
-        }
-
-        function setupRealtimeListeners() {
-            if (!db || !auth.currentUser) return;
-
-            const weeksRef = collection(db, 'artifacts', appId, 'public', 'data', 'weeks_2026');
-            unsubWeeks = onSnapshot(weeksRef, (snapshot) => {
-                if (snapshot.empty) {
-                    const defaultWeeks = generate2026Weeks();
-                    defaultWeeks.forEach(w => {
-                        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'weeks_2026', w.id), w);
-                    });
-                } else {
-                    weeks = [];
-                    snapshot.forEach(docSnap => {
-                        weeks.push(docSnap.data());
-                    });
-                    weeks.sort((a, b) => {
-                        let numA = parseInt(a.id.replace('week-', '').replace('custom-', '')) || 0;
-                        let numB = parseInt(b.id.replace('week-', '').replace('custom-', '')) || 0;
-                        return numA - numB;
-                    });
-                    if (weeks.length > 0 && !selectedWeekId) {
-                        selectedWeekId = weeks[0].id;
-                    }
-                    populateWeekSelector();
-                    updateUI();
-                }
-            }, (error) => {
-                console.error("Weeks snapshot error:", error);
-            });
-
-            const teamRef = collection(db, 'artifacts', appId, 'public', 'data', 'team_members');
-            unsubTeam = onSnapshot(teamRef, (snapshot) => {
-                teamMembers = [];
-                snapshot.forEach(docSnap => {
-                    teamMembers.push(docSnap.data());
-                });
-                updateUI();
-            }, (error) => {
-                console.error("Team snapshot error:", error);
-            });
-
-            const recordsRef = collection(db, 'artifacts', appId, 'public', 'data', 'production_records');
-            unsubRecords = onSnapshot(recordsRef, (snapshot) => {
-                records = [];
-                snapshot.forEach(docSnap => {
-                    records.push(docSnap.data());
-                });
-                updateUI();
-            }, (error) => {
-                console.error("Records snapshot error:", error);
-            });
-        }
-
-        function loadDataLocal() {
-            const savedWeeks = localStorage.getItem('prod_tracker_weeks_2026');
-            if (savedWeeks) {
-                weeks = JSON.parse(savedWeeks);
-            } else {
-                weeks = generate2026Weeks();
-                localStorage.setItem('prod_tracker_weeks_2026', JSON.stringify(weeks));
-            }
-
-            const savedTeam = localStorage.getItem('prod_tracker_team');
-            if (savedTeam) {
-                teamMembers = JSON.parse(savedTeam);
-            } else {
-                teamMembers = [];
-                localStorage.setItem('prod_tracker_team', JSON.stringify(teamMembers));
-            }
-
-            const savedRecords = localStorage.getItem('prod_tracker_records');
-            if (savedRecords) {
-                records = JSON.parse(savedRecords);
-            } else {
-                records = [];
-                localStorage.setItem('prod_tracker_records', JSON.stringify(records));
-            }
-
-            if (weeks.length > 0 && !selectedWeekId) {
-                selectedWeekId = weeks[0].id;
-            }
-        }
-
-        function saveDataLocal() {
-            localStorage.setItem('prod_tracker_weeks_2026', JSON.stringify(weeks));
-            localStorage.setItem('prod_tracker_team', JSON.stringify(teamMembers));
-            localStorage.setItem('prod_tracker_records', JSON.stringify(records));
-        }
-
-        window.onload = function() {
-            initFirebaseSync();
         };
 
-        function populateWeekSelector() {
+        // Populate Week Selector Dropdown
+        window.populateWeekSelector = function() {
             const select = document.getElementById('week-selector');
             if (!select) return;
             select.innerHTML = '';
-            weeks.forEach(w => {
+            window.weeks.forEach(w => {
                 const opt = document.createElement('option');
                 opt.value = w.id;
                 opt.textContent = `${w.name} (${w.range})`;
-                if (w.id === selectedWeekId) opt.selected = true;
+                if (w.id === window.selectedWeekId) opt.selected = true;
                 select.appendChild(opt);
             });
             
-            const activeWeek = weeks.find(w => w.id === selectedWeekId);
+            const activeWeek = window.weeks.find(w => w.id === window.selectedWeekId);
             if (activeWeek) {
                 const displayEl = document.getElementById('active-week-display');
                 if (displayEl) displayEl.textContent = `${activeWeek.name} (${activeWeek.range})`;
@@ -576,14 +548,15 @@
         window.changeSelectedWeek = function() {
             const select = document.getElementById('week-selector');
             if (select) {
-                selectedWeekId = select.value;
+                window.selectedWeekId = select.value;
             }
             populateWeekSelector();
             updateUI();
-        };
+        }
 
+        // Switch Roles & Views
         window.switchRole = function(role) {
-            currentRole = role;
+            window.currentRole = role;
             
             ['dashboard', 'main', 'sub1', 'sub2'].forEach(r => {
                 const btn = document.getElementById(`role-btn-${r}`);
@@ -612,7 +585,7 @@
                 populateProducerDropdown();
                 renderMyRecords();
             }
-        };
+        }
 
         function setupEntryRoleHeader(role) {
             const badge = document.getElementById('role-badge');
@@ -643,7 +616,7 @@
             const select = document.getElementById('input-producer-id');
             if (!select) return;
             select.innerHTML = '<option value="">팀원을 선택하세요</option>';
-            teamMembers.forEach(m => {
+            window.teamMembers.forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m.id;
                 opt.textContent = `[${m.id}] ${m.nickname} ${m.memo ? '(' + m.memo + ')' : ''}`;
@@ -651,8 +624,8 @@
             });
         }
 
-        function updateUI() {
-            if (currentRole === 'dashboard') {
+        window.updateUI = function() {
+            if (window.currentRole === 'dashboard') {
                 renderDashboard();
             } else {
                 populateProducerDropdown();
@@ -660,6 +633,7 @@
             }
         }
 
+        // Record Form Submit with Additive Accumulation (Cloud Firestore Sync)
         window.handleRecordSubmit = async function(e) {
             e.preventDefault();
             const producerId = document.getElementById('input-producer-id').value;
@@ -672,58 +646,42 @@
                 return;
             }
 
-            const existingIndex = records.findIndex(r => r.weekId === selectedWeekId && r.role === currentRole && r.producerId === producerId);
+            const existing = window.records.find(r => r.weekId === window.selectedWeekId && r.role === window.currentRole && r.producerId === producerId);
 
-            if (db && auth && auth.currentUser) {
-                if (existingIndex > -1) {
-                    const existingRec = records[existingIndex];
-                    existingRec.weed += addWeed;
-                    existingRec.cocaine += addCocaine;
-                    existingRec.lsd += addLsd;
-                    existingRec.timestamp = Date.now();
-                    
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'production_records', existingRec.id), existingRec);
-                    showModal('성공', `클라우드에 수량이 자동 합산 반영되었습니다. (대마 +${addWeed}, 코카인 +${addCocaine}, LSD +${addLsd})`, 'success');
-                } else {
-                    const newRecId = 'rec-' + Date.now() + '-' + Math.floor(Math.random()*1000);
-                    const newRec = {
-                        id: newRecId,
-                        weekId: selectedWeekId,
-                        role: currentRole,
-                        producerId: producerId,
-                        weed: addWeed,
-                        cocaine: addCocaine,
-                        lsd: addLsd,
-                        timestamp: Date.now()
-                    };
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'production_records', newRecId), newRec);
-                    showModal('성공', '새로운 공급 기록이 클라우드에 실시간 추가되었습니다.', 'success');
-                }
+            let recordId = '';
+            let finalWeed = addWeed;
+            let finalCocaine = addCocaine;
+            let finalLsd = addLsd;
+
+            if (existing) {
+                recordId = existing.id;
+                finalWeed = existing.weed + addWeed;
+                finalCocaine = existing.cocaine + addCocaine;
+                finalLsd = existing.lsd + addLsd;
             } else {
-                if (existingIndex > -1) {
-                    records[existingIndex].weed += addWeed;
-                    records[existingIndex].cocaine += addCocaine;
-                    records[existingIndex].lsd += addLsd;
-                    records[existingIndex].timestamp = Date.now();
-                } else {
-                    records.push({
-                        id: 'rec-' + Date.now() + '-' + Math.floor(Math.random()*1000),
-                        weekId: selectedWeekId,
-                        role: currentRole,
-                        producerId: producerId,
-                        weed: addWeed,
-                        cocaine: addCocaine,
-                        lsd: addLsd,
-                        timestamp: Date.now()
-                    });
-                }
-                saveDataLocal();
-                showModal('성공', '로컬 기록이 추가되었습니다.', 'success');
+                recordId = 'rec-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+            }
+
+            const recData = {
+                id: recordId,
+                weekId: window.selectedWeekId,
+                role: window.currentRole,
+                producerId: producerId,
+                weed: finalWeed,
+                cocaine: finalCocaine,
+                lsd: finalLsd,
+                timestamp: Date.now()
+            };
+
+            await setDoc(doc(db, 'records', recordId), recData);
+            if (existing) {
+                showModal('성공', `기존 기록에 수량이 실시간 자동 합산되었습니다. (대마 +${addWeed}, 코카인 +${addCocaine}, LSD +${addLsd})`, 'success');
+            } else {
+                showModal('성공', '새로운 공급 기록이 클라우드에 등록되었습니다.', 'success');
             }
 
             resetRecordForm();
-            renderMyRecords();
-        };
+        }
 
         window.resetRecordForm = function() {
             const prodSelect = document.getElementById('input-producer-id');
@@ -735,14 +693,14 @@
             if (weedInput) weedInput.value = '0';
             if (cokeInput) cokeInput.value = '0';
             if (lsdInput) lsdInput.value = '0';
-        };
+        }
 
         function renderMyRecords() {
             const tbody = document.getElementById('my-records-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            const filtered = records.filter(r => r.weekId === selectedWeekId && r.role === currentRole);
+            const filtered = window.records.filter(r => r.weekId === window.selectedWeekId && r.role === window.currentRole);
             const countEl = document.getElementById('my-record-count');
             if (countEl) countEl.textContent = `총 ${filtered.length}건`;
 
@@ -752,7 +710,7 @@
             }
 
             filtered.forEach(r => {
-                const member = teamMembers.find(m => m.id === r.producerId) || { nickname: '알 수 없음', memo: '-' };
+                const member = window.teamMembers.find(m => m.id === r.producerId) || { nickname: '알 수 없음', memo: '-' };
                 const total = r.weed + r.cocaine + r.lsd;
 
                 const tr = document.createElement('tr');
@@ -774,8 +732,8 @@
             });
         }
 
-        window.editRecord = async function(id) {
-            const rec = records.find(r => r.id === id);
+        window.editRecord = function(id) {
+            const rec = window.records.find(r => r.id === id);
             if (!rec) return;
 
             document.getElementById('input-producer-id').value = rec.producerId;
@@ -783,27 +741,19 @@
             document.getElementById('input-cocaine').value = rec.cocaine;
             document.getElementById('input-lsd').value = rec.lsd;
 
-            await deleteRecord(id);
             window.scrollTo({ top: 200, behavior: 'smooth' });
-        };
+        }
 
         window.deleteRecord = async function(id) {
-            if (db && auth && auth.currentUser) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'production_records', id));
-                } catch (e) {
-                    console.error("Delete record error:", e);
-                }
-            } else {
-                records = records.filter(r => r.id !== id);
-                saveDataLocal();
-                renderMyRecords();
-            }
-            showModal('삭제 완료', '기록이 삭제되었습니다.', 'info');
-        };
+            await deleteDoc(doc(db, 'records', id));
+            showModal('삭제 완료', '기록이 클라우드에서 삭제되었습니다.', 'info');
+        }
+
+        // Dashboard & Rankings & Calculator Logic
+        let lastCalculatedTotalItems = 0;
 
         function renderDashboard() {
-            const weekRecords = records.filter(r => r.weekId === selectedWeekId);
+            const weekRecords = window.records.filter(r => r.weekId === window.selectedWeekId);
 
             let totalWeed = 0;
             let totalCocaine = 0;
@@ -825,18 +775,22 @@
                 producerAggMap[r.producerId].total += (r.weed + r.cocaine + r.lsd);
             });
 
+            lastCalculatedTotalItems = totalWeed + totalCocaine + totalLsd;
+
             const totalItemsEl = document.getElementById('stat-total-items');
             const totalWeedEl = document.getElementById('stat-total-weed');
             const totalCocaineEl = document.getElementById('stat-total-cocaine');
             const totalLsdEl = document.getElementById('stat-total-lsd');
 
-            if (totalItemsEl) totalItemsEl.innerHTML = `${totalWeed + totalCocaine + totalLsd} <span class="text-xs font-normal text-slate-400">개</span>`;
-            if (totalWeedEl) totalWeedEl.textContent = totalWeed;
-            if (totalCocaineEl) totalCocaineEl.textContent = totalCocaine;
-            if (totalLsdEl) totalLsdEl.textContent = totalLsd;
+            if (totalItemsEl) totalItemsEl.innerHTML = `${lastCalculatedTotalItems.toLocaleString()} <span class="text-xs font-normal text-slate-400">개</span>`;
+            if (totalWeedEl) totalWeedEl.textContent = totalWeed.toLocaleString();
+            if (totalCocaineEl) totalCocaineEl.textContent = totalCocaine.toLocaleString();
+            if (totalLsdEl) totalLsdEl.textContent = totalLsd.toLocaleString();
+
+            calculatePayout();
 
             const sortedProducers = Object.keys(producerAggMap).map(pid => {
-                const member = teamMembers.find(m => m.id === pid) || { nickname: pid, memo: '-' };
+                const member = window.teamMembers.find(m => m.id === pid) || { nickname: pid, memo: '-' };
                 return {
                     id: pid,
                     nickname: member.nickname,
@@ -880,15 +834,15 @@
                                 <p class="text-[10px] text-slate-400 font-mono mb-3">고유번호: ${rankData.id}</p>
                                 
                                 <div class="space-y-1.5 text-xs bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50 mb-3">
-                                    <div class="flex justify-between text-slate-300"><span>대마초:</span><span class="text-emerald-400 font-semibold">${rankData.weed}개</span></div>
-                                    <div class="flex justify-between text-slate-300"><span>코카인:</span><span class="text-purple-400 font-semibold">${rankData.cocaine}개</span></div>
-                                    <div class="flex justify-between text-slate-300"><span>LSD:</span><span class="text-pink-400 font-semibold">${rankData.lsd}개</span></div>
+                                    <div class="flex justify-between text-slate-300"><span>대마초:</span><span class="text-emerald-400 font-semibold">${rankData.weed.toLocaleString()}개</span></div>
+                                    <div class="flex justify-between text-slate-300"><span>코카인:</span><span class="text-purple-400 font-semibold">${rankData.cocaine.toLocaleString()}개</span></div>
+                                    <div class="flex justify-between text-slate-300"><span>LSD:</span><span class="text-pink-400 font-semibold">${rankData.lsd.toLocaleString()}개</span></div>
                                 </div>
                             </div>
                             <div>
                                 <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
                                     <span class="text-[10px] text-slate-400">합산 총량</span>
-                                    <span class="text-sm font-extrabold text-white">${rankData.total}개</span>
+                                    <span class="text-sm font-extrabold text-white">${rankData.total.toLocaleString()}개</span>
                                 </div>
                                 <p class="text-[10px] text-slate-400 mt-2 truncate bg-slate-800/50 p-1.5 rounded border border-slate-700/30">메모: ${rankData.memo || '-'}</p>
                             </div>
@@ -913,17 +867,57 @@
             renderAllRecordsTable();
         }
 
+        // Settlement Calculator Functions
+        window.calculatePayout = function() {
+            const qtyInput = document.getElementById('calc-input-qty');
+            const resultOutput = document.getElementById('calc-output-result');
+            if (!qtyInput || !resultOutput) return;
+
+            const qty = parseInt(qtyInput.value) || 0;
+            const totalKRW = qty * 200000; // 10,000 items = 20억 (rate 200,000 per item)
+            const totalBillion = totalKRW / 100000000;
+
+            resultOutput.value = `${totalKRW.toLocaleString()}원 (${totalBillion.toFixed(2)}억)`;
+        }
+
+        window.fillTotalProductionToCalc = function() {
+            const qtyInput = document.getElementById('calc-input-qty');
+            if (qtyInput) {
+                qtyInput.value = lastCalculatedTotalItems;
+                calculatePayout();
+                showModal('불러오기 완료', `선택 주간 총 생산량(${lastCalculatedTotalItems.toLocaleString()}개)이 계산기에 입력되었습니다.`, 'success');
+            }
+        }
+
+        window.copyPayoutResult = function() {
+            const resultOutput = document.getElementById('calc-output-result');
+            if (!resultOutput) return;
+
+            const textToCopy = resultOutput.value;
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showModal('복사 완료', `정산 금액("${textToCopy}")이 클립보드에 복사되었습니다.`, 'success');
+            } catch (err) {
+                showModal('복사 실패', '클립보드 복사에 실패했습니다.', 'warning');
+            }
+            document.body.removeChild(textArea);
+        }
+
         function renderTeamMembersTable() {
             const tbody = document.getElementById('team-members-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            if (teamMembers.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-500">등록된 팀원이 없습니다. 상단의 '팀원 추가하기' 버튼을 눌러 팀원을 등록하세요.</td></tr>`;
+            if (window.teamMembers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-500">등록된 팀원이 없습니다. 상단의 '팀원 추가하기' 버튼을 눌러 등록해주세요.</td></tr>`;
                 return;
             }
 
-            teamMembers.forEach(m => {
+            window.teamMembers.forEach(m => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition';
                 tr.innerHTML = `
@@ -945,7 +939,7 @@
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            const weekRecords = records.filter(r => r.weekId === selectedWeekId);
+            const weekRecords = window.records.filter(r => r.weekId === window.selectedWeekId);
 
             if (weekRecords.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500">선택된 주간에 입력된 판매원별 기록이 없습니다.</td></tr>`;
@@ -959,7 +953,7 @@
             };
 
             weekRecords.forEach(r => {
-                const member = teamMembers.find(m => m.id === r.producerId) || { nickname: '알 수 없음', memo: '-' };
+                const member = window.teamMembers.find(m => m.id === r.producerId) || { nickname: '알 수 없음', memo: '-' };
                 const total = r.weed + r.cocaine + r.lsd;
 
                 const tr = document.createElement('tr');
@@ -968,16 +962,17 @@
                     <td class="p-3">${roleNameMap[r.role]}</td>
                     <td class="p-3 font-mono text-slate-400">${r.producerId}</td>
                     <td class="p-3 font-bold text-white">${member.nickname}</td>
-                    <td class="p-3 text-center text-emerald-400">${r.weed}</td>
-                    <td class="p-3 text-center text-purple-400">${r.cocaine}</td>
-                    <td class="p-3 text-center text-pink-400">${r.lsd}</td>
-                    <td class="p-3 text-center font-bold text-white">${total}</td>
+                    <td class="p-3 text-center text-emerald-400">${r.weed.toLocaleString()}</td>
+                    <td class="p-3 text-center text-purple-400">${r.cocaine.toLocaleString()}</td>
+                    <td class="p-3 text-center text-pink-400">${r.lsd.toLocaleString()}</td>
+                    <td class="p-3 text-center font-bold text-white">${total.toLocaleString()}</td>
                     <td class="p-3 text-slate-400 truncate max-w-xs">${member.memo || '-'}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
+        // Team Member Modal Management
         window.openTeamMemberModal = function(id = null) {
             const modal = document.getElementById('team-modal');
             const title = document.getElementById('team-modal-title');
@@ -985,7 +980,7 @@
             document.getElementById('team-edit-id').value = id || '';
             
             if (id) {
-                const member = teamMembers.find(m => m.id === id);
+                const member = window.teamMembers.find(m => m.id === id);
                 if (member) {
                     if (title) title.textContent = '팀원 정보 수정';
                     document.getElementById('team-code').value = member.id;
@@ -995,7 +990,7 @@
                 }
             } else {
                 if (title) title.textContent = '새로운 팀원 추가';
-                document.getElementById('team-code').value = '';
+                document.getElementById('team-code').value = 'T-' + String(window.teamMembers.length + 1).padStart(3, '0');
                 document.getElementById('team-code').disabled = false;
                 document.getElementById('team-nickname').value = '';
                 document.getElementById('team-memo').value = '';
@@ -1005,7 +1000,7 @@
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.remove('opacity-0'), 10);
             }
-        };
+        }
 
         window.closeTeamMemberModal = function() {
             const modal = document.getElementById('team-modal');
@@ -1013,7 +1008,7 @@
                 modal.classList.add('opacity-0');
                 setTimeout(() => modal.classList.add('hidden'), 300);
             }
-        };
+        }
 
         window.handleTeamFormSubmit = async function(e) {
             e.preventDefault();
@@ -1022,68 +1017,36 @@
             const nickname = document.getElementById('team-nickname').value.trim();
             const memo = document.getElementById('team-memo').value.trim();
 
-            if (db && auth && auth.currentUser) {
-                if (editId) {
-                    const member = teamMembers.find(m => m.id === editId);
-                    if (member) {
-                        member.nickname = nickname;
-                        member.memo = memo;
-                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'team_members', editId), member);
-                        showModal('수정 완료', '팀원 정보가 실시간 수정되었습니다.', 'success');
-                    }
-                } else {
-                    if (teamMembers.some(m => m.id === code)) {
-                        showModal('중복 오류', '이미 존재하는 고유번호입니다.', 'warning');
-                        return;
-                    }
-                    const newMember = {
-                        id: code,
-                        nickname: nickname,
-                        memo: memo,
-                        date: formatDate(new Date())
-                    };
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'team_members', code), newMember);
-                    showModal('추가 완료', '새로운 팀원이 실시간 등록되었습니다.', 'success');
-                }
-            } else {
-                if (editId) {
-                    const member = teamMembers.find(m => m.id === editId);
-                    if (member) {
-                        member.nickname = nickname;
-                        member.memo = memo;
-                    }
-                } else {
-                    teamMembers.push({ id: code, nickname, memo, date: formatDate(new Date()) });
-                }
-                saveDataLocal();
+            if (!editId && window.teamMembers.some(m => m.id === code)) {
+                showModal('중복 오류', '이미 존재하는 고유번호입니다.', 'warning');
+                return;
             }
 
+            const memberData = {
+                id: code,
+                nickname: nickname,
+                memo: memo,
+                date: window.formatDate(new Date())
+            };
+
+            await setDoc(doc(db, 'teamMembers', code), memberData);
+            showModal('저장 완료', '팀원 정보가 클라우드에 성공적으로 저장되었습니다.', 'success');
             closeTeamMemberModal();
-            updateUI();
-        };
+        }
 
         window.deleteTeamMember = async function(id) {
-            if (db && auth && auth.currentUser) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'team_members', id));
-                } catch (e) {
-                    console.error("Delete team error:", e);
-                }
-            } else {
-                teamMembers = teamMembers.filter(m => m.id !== id);
-                saveDataLocal();
-                updateUI();
-            }
+            await deleteDoc(doc(db, 'teamMembers', id));
             showModal('삭제 완료', '팀원이 삭제되었습니다.', 'info');
-        };
+        }
 
+        // Custom Week Modal Management
         window.openCustomWeekModal = function() {
             const modal = document.getElementById('week-modal');
             if (modal) {
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.remove('opacity-0'), 10);
             }
-        };
+        }
 
         window.closeCustomWeekModal = function() {
             const modal = document.getElementById('week-modal');
@@ -1091,7 +1054,7 @@
                 modal.classList.add('opacity-0');
                 setTimeout(() => modal.classList.add('hidden'), 300);
             }
-        };
+        }
 
         window.handleCustomWeekSubmit = async function(e) {
             e.preventDefault();
@@ -1101,30 +1064,23 @@
 
             const startStr = startInput.replace(/-/g, '.');
             const endStr = endInput.replace(/-/g, '.');
-            const newWeekId = 'custom-' + Date.now();
+            const weekId = 'custom-' + Date.now();
 
             const newWeek = {
-                id: newWeekId,
+                id: weekId,
                 name: name,
                 range: `${startStr} ~ ${endStr}`,
                 start: startStr,
                 end: endStr
             };
 
-            if (db && auth && auth.currentUser) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'weeks_2026', newWeekId), newWeek);
-            } else {
-                weeks.push(newWeek);
-                saveDataLocal();
-            }
-
-            selectedWeekId = newWeekId;
-            populateWeekSelector();
+            await setDoc(doc(db, 'weeks', weekId), newWeek);
+            window.selectedWeekId = weekId;
             closeCustomWeekModal();
-            updateUI();
-            showModal('추가 완료', '새로운 주간이 실시간 추가되었습니다.', 'success');
-        };
+            showModal('추가 완료', '새로운 주간이 클라우드에 추가되었습니다.', 'success');
+        }
 
+        // Custom Toast Modal Notification
         window.showModal = function(title, message, type = 'info') {
             const modal = document.getElementById('custom-modal');
             const titleEl = document.getElementById('modal-title');
@@ -1151,7 +1107,7 @@
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.remove('opacity-0'), 10);
             }
-        };
+        }
 
         window.closeModal = function() {
             const modal = document.getElementById('custom-modal');
@@ -1159,7 +1115,7 @@
                 modal.classList.add('opacity-0');
                 setTimeout(() => modal.classList.add('hidden'), 300);
             }
-        };
+        }
     </script>
 </body>
 </html>
