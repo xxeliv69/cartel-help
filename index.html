@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>마약류 생산 및 공급 관리 시스템 (2026)</title>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -277,7 +278,7 @@
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">통합 합산 랭킹</span>
                             <h2 class="text-lg font-bold text-white">주간 생산량 1 ~ 5등 순위</h2>
                         </div>
-                        <p class="text-xs text-slate-400 mt-1">메인판매, 서브판매 1, 서브판매 2가 기록한 모든 데이터를 합산하여 순위를 매깁니다. (선택된 주간 전용)</p>
+                        <p class="text-xs text-slate-400 mt-1">메인판매, 서브판매 1, 서브판매 2가 기록한 데이터를 합산하되, '순위 표시 안 함' 체크된 인원은 제외하고 자동 정렬됩니다.</p>
                     </div>
                 </div>
 
@@ -293,7 +294,7 @@
                         <h2 class="text-lg font-bold text-white flex items-center gap-2">
                             <i class="fa-solid fa-users-gear text-blue-400"></i> 제작자 팀원 관리 (고유번호 & 닉네임 & 메모)
                         </h2>
-                        <p class="text-xs text-slate-400 mt-0.5">이름이 자주 바뀌는 제작자들을 위해 언제든지 수정할 수 있으며, 전담 품목 메모를 남길 수 있습니다.</p>
+                        <p class="text-xs text-slate-400 mt-0.5">이름이 자주 바뀌는 제작자들을 위해 언제든지 수정할 수 있으며, 전담 품목 메모 및 순위 제외 설정을 관리할 수 있습니다.</p>
                     </div>
                     <button onclick="openTeamMemberModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-lg shadow-blue-600/20">
                         <i class="fa-solid fa-user-plus"></i> 팀원 추가하기
@@ -306,7 +307,7 @@
                             <tr>
                                 <th class="p-3">고유번호</th>
                                 <th class="p-3">닉네임</th>
-                                <th class="p-3">전담 메모 (예: 대마 전담 등)</th>
+                                <th class="p-3">전담 메모</th>
                                 <th class="p-3 text-center">등록일</th>
                                 <th class="p-3 text-right">관리</th>
                             </tr>
@@ -361,12 +362,19 @@
                     <input type="text" id="team-code" required placeholder="예: PROD-001" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5"><i class="fa-solid fa-user mr-1 text-emerald-400"></i> 닉네임 (이름 변경 시 언제든 수정 가능)</label>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5"><i class="fa-solid fa-user mr-1 text-emerald-400"></i> 닉네임</label>
                     <input type="text" id="team-nickname" required placeholder="예: 김대마" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5"><i class="fa-solid fa-note-sticky mr-1 text-purple-400"></i> 메모 (대마 전담 등)</label>
-                    <textarea id="team-memo" rows="3" placeholder="특이사항이나 담당 품목을 입력하세요..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 resize-none"></textarea>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5"><i class="fa-solid fa-note-sticky mr-1 text-purple-400"></i> 메모</label>
+                    <textarea id="team-memo" rows="2" placeholder="특이사항이나 담당 품목을 입력하세요..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 resize-none"></textarea>
+                </div>
+                <!-- 순위 표시 안 함 체크박스 추가 -->
+                <div class="flex items-center gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-700/80">
+                    <input type="checkbox" id="team-exclude-ranking" class="w-4 h-4 text-amber-600 bg-slate-800 border-slate-700 rounded focus:ring-amber-500 cursor-pointer">
+                    <label for="team-exclude-ranking" class="text-xs font-medium text-slate-300 cursor-pointer">
+                        <i class="fa-solid fa-eye-slash text-amber-400 mr-1"></i> 랭킹 순위 표시 안 함 <span class="text-slate-500">(간부 등 랭킹 제외 대상)</span>
+                    </label>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeTeamMemberModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-medium transition">취소</button>
@@ -431,7 +439,7 @@
         window.selectedWeekId = '';
         window.teamMembers = [];
         window.records = [];
-        window.selectedRecordId = null; // 수정 모드 추적용 변수 추가
+        window.selectedRecordId = null;
 
         function generate2026Weeks() {
             const generated = [];
@@ -611,7 +619,7 @@
             window.teamMembers.forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m.id;
-                opt.textContent = `[${m.id}] ${m.nickname} ${m.memo ? '(' + m.memo + ')' : ''}`;
+                opt.textContent = `[${m.id}] ${m.nickname} ${m.memo ? '(' + m.memo + ')' : ''} ${m.excludeRanking ? '[순위제외]' : ''}`;
                 select.appendChild(opt);
             });
         }
@@ -625,7 +633,6 @@
             }
         }
 
-        // 수정 모드 분기가 적용된 Submit 로직
         window.handleRecordSubmit = async function(e) {
             e.preventDefault();
             const producerId = document.getElementById('input-producer-id').value;
@@ -643,12 +650,9 @@
             let finalCocaine = cocaineVal;
             let finalLsd = lsdVal;
 
-            // 1. 수정 모드일 때 (덮어쓰기)
             if (window.selectedRecordId) {
                 recordId = window.selectedRecordId;
-            } 
-            // 2. 일반 추가 모드일 때 (기존 자동 누적 합산)
-            else {
+            } else {
                 const existing = window.records.find(r => r.weekId === window.selectedWeekId && r.role === window.currentRole && r.producerId === producerId);
                 
                 if (existing) {
@@ -694,7 +698,6 @@
             if (cokeInput) cokeInput.value = '0';
             if (lsdInput) lsdInput.value = '0';
 
-            // 수정 모드 상태 해제 및 버튼 원복
             window.selectedRecordId = null;
             const submitBtn = document.getElementById('submit-btn');
             if (submitBtn) {
@@ -740,7 +743,6 @@
             });
         }
 
-        // 수정 버튼 클릭 시 수정 모드로 전환
         window.editRecord = function(id) {
             const rec = window.records.find(r => r.id === id);
             if (!rec) return;
@@ -752,7 +754,6 @@
             document.getElementById('input-cocaine').value = rec.cocaine;
             document.getElementById('input-lsd').value = rec.lsd;
 
-            // 버튼 디자인을 [수정 완료]로 변경
             const submitBtn = document.getElementById('submit-btn');
             if (submitBtn) {
                 submitBtn.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2";
@@ -806,15 +807,19 @@
 
             calculatePayout();
 
+            // 1. 전체 프로듀서 데이터를 매핑하되, '순위 표시 안 함(excludeRanking)'이 true인 사람은 랭킹 대상에서 제외
             const sortedProducers = Object.keys(producerAggMap).map(pid => {
-                const member = window.teamMembers.find(m => m.id === pid) || { nickname: pid, memo: '-' };
+                const member = window.teamMembers.find(m => m.id === pid) || { nickname: pid, memo: '-', excludeRanking: false };
                 return {
                     id: pid,
                     nickname: member.nickname,
                     memo: member.memo,
+                    excludeRanking: member.excludeRanking || false,
                     ...producerAggMap[pid]
                 };
-            }).sort((a, b) => b.total - a.total);
+            })
+            .filter(producer => !producer.excludeRanking) // <-- 순위 표시 안 함 체크된 인원은 랭킹에서 완전히 필터링
+            .sort((a, b) => b.total - a.total);
 
             const rankingContainer = document.getElementById('ranking-container');
             if (rankingContainer) {
@@ -936,9 +941,15 @@
             window.teamMembers.forEach(m => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition';
+                
+                // 순위 제외 상태 배지 처리
+                const excludeBadge = m.excludeRanking 
+                    ? `<span class="ml-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[10px] font-bold"><i class="fa-solid fa-eye-slash mr-1"></i>순위 제외</span>` 
+                    : '';
+
                 tr.innerHTML = `
                     <td class="p-3 font-mono text-slate-300">${m.id}</td>
-                    <td class="p-3 font-bold text-white">${m.nickname}</td>
+                    <td class="p-3 font-bold text-white">${m.nickname} ${excludeBadge}</td>
                     <td class="p-3 text-slate-300">${m.memo || '-'}</td>
                     <td class="p-3 text-center text-slate-400">${m.date}</td>
                     <td class="p-3 text-right space-x-2">
@@ -1002,6 +1013,7 @@
                     document.getElementById('team-code').disabled = true;
                     document.getElementById('team-nickname').value = member.nickname;
                     document.getElementById('team-memo').value = member.memo || '';
+                    document.getElementById('team-exclude-ranking').checked = member.excludeRanking || false;
                 }
             } else {
                 if (title) title.textContent = '새로운 팀원 추가';
@@ -1009,6 +1021,7 @@
                 document.getElementById('team-code').disabled = false;
                 document.getElementById('team-nickname').value = '';
                 document.getElementById('team-memo').value = '';
+                document.getElementById('team-exclude-ranking').checked = false;
             }
 
             if (modal) {
@@ -1031,6 +1044,7 @@
             const code = document.getElementById('team-code').value.trim();
             const nickname = document.getElementById('team-nickname').value.trim();
             const memo = document.getElementById('team-memo').value.trim();
+            const excludeRanking = document.getElementById('team-exclude-ranking').checked; // 체크박스 값 가져오기
 
             if (!editId && window.teamMembers.some(m => m.id === code)) {
                 showModal('중복 오류', '이미 존재하는 고유번호입니다.', 'warning');
@@ -1041,6 +1055,7 @@
                 id: code,
                 nickname: nickname,
                 memo: memo,
+                excludeRanking: excludeRanking, // 데이터에 반영 저장
                 date: window.formatDate(new Date())
             };
 
