@@ -146,7 +146,7 @@
                         <input type="number" id="input-lsd" min="0" value="0" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500">
                     </div>
                     <div class="md:col-span-3 flex gap-2">
-                        <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+                        <button type="submit" id="submit-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-plus-circle"></i> 수량 자동 합산 추가
                         </button>
                         <button type="button" onclick="resetRecordForm()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2.5 rounded-xl text-xs transition">
@@ -431,6 +431,7 @@
         window.selectedWeekId = '';
         window.teamMembers = [];
         window.records = [];
+        window.selectedRecordId = null; // 수정 모드 추적용 변수 추가
 
         function generate2026Weeks() {
             const generated = [];
@@ -460,7 +461,6 @@
             return `${date.getFullYear()}.${m}.${d}`;
         }
 
-        // Initialize default weeks if not present in Firestore
         async function initDefaultDataIfNeeded() {
             const weeksSnap = await getDocs(collection(db, 'weeks'));
             if (weeksSnap.empty) {
@@ -471,15 +471,12 @@
             }
         }
 
-        // Realtime Listeners
         function setupFirebaseListeners() {
-            // 1. Listen to Weeks
             onSnapshot(collection(db, 'weeks'), (snapshot) => {
                 window.weeks = [];
                 snapshot.forEach(docSnap => {
                     window.weeks.push(docSnap.data());
                 });
-                // Sort by week number or id
                 window.weeks.sort((a, b) => {
                     if (a.id.startsWith('week-') && b.id.startsWith('week-')) {
                         return parseInt(a.id.replace('week-', '')) - parseInt(b.id.replace('week-', ''));
@@ -493,7 +490,6 @@
                 updateUI();
             });
 
-            // 2. Listen to Team Members
             onSnapshot(collection(db, 'teamMembers'), (snapshot) => {
                 window.teamMembers = [];
                 snapshot.forEach(docSnap => {
@@ -502,7 +498,6 @@
                 updateUI();
             });
 
-            // 3. Listen to Records
             onSnapshot(collection(db, 'records'), (snapshot) => {
                 window.records = [];
                 snapshot.forEach(docSnap => {
@@ -516,14 +511,12 @@
             });
         }
 
-        // Startup
         window.onload = async function() {
             await initDefaultDataIfNeeded();
             setupFirebaseListeners();
             switchRole('dashboard');
         };
 
-        // Populate Week Selector Dropdown
         window.populateWeekSelector = function() {
             const select = document.getElementById('week-selector');
             if (!select) return;
@@ -554,7 +547,6 @@
             updateUI();
         }
 
-        // Switch Roles & Views
         window.switchRole = function(role) {
             window.currentRole = role;
             
@@ -633,33 +625,40 @@
             }
         }
 
-        // Record Form Submit with Additive Accumulation (Cloud Firestore Sync)
+        // 수정 모드 분기가 적용된 Submit 로직
         window.handleRecordSubmit = async function(e) {
             e.preventDefault();
             const producerId = document.getElementById('input-producer-id').value;
-            const addWeed = parseInt(document.getElementById('input-weed').value) || 0;
-            const addCocaine = parseInt(document.getElementById('input-cocaine').value) || 0;
-            const addLsd = parseInt(document.getElementById('input-lsd').value) || 0;
+            const weedVal = parseInt(document.getElementById('input-weed').value) || 0;
+            const cocaineVal = parseInt(document.getElementById('input-cocaine').value) || 0;
+            const lsdVal = parseInt(document.getElementById('input-lsd').value) || 0;
 
             if (!producerId) {
                 showModal('경고', '제작자 팀원을 선택해주세요.', 'warning');
                 return;
             }
 
-            const existing = window.records.find(r => r.weekId === window.selectedWeekId && r.role === window.currentRole && r.producerId === producerId);
-
             let recordId = '';
-            let finalWeed = addWeed;
-            let finalCocaine = addCocaine;
-            let finalLsd = addLsd;
+            let finalWeed = weedVal;
+            let finalCocaine = cocaineVal;
+            let finalLsd = lsdVal;
 
-            if (existing) {
-                recordId = existing.id;
-                finalWeed = existing.weed + addWeed;
-                finalCocaine = existing.cocaine + addCocaine;
-                finalLsd = existing.lsd + addLsd;
-            } else {
-                recordId = 'rec-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+            // 1. 수정 모드일 때 (덮어쓰기)
+            if (window.selectedRecordId) {
+                recordId = window.selectedRecordId;
+            } 
+            // 2. 일반 추가 모드일 때 (기존 자동 누적 합산)
+            else {
+                const existing = window.records.find(r => r.weekId === window.selectedWeekId && r.role === window.currentRole && r.producerId === producerId);
+                
+                if (existing) {
+                    recordId = existing.id;
+                    finalWeed = existing.weed + weedVal;
+                    finalCocaine = existing.cocaine + cocaineVal;
+                    finalLsd = existing.lsd + lsdVal;
+                } else {
+                    recordId = 'rec-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+                }
             }
 
             const recData = {
@@ -674,8 +673,9 @@
             };
 
             await setDoc(doc(db, 'records', recordId), recData);
-            if (existing) {
-                showModal('성공', `기존 기록에 수량이 실시간 자동 합산되었습니다. (대마 +${addWeed}, 코카인 +${addCocaine}, LSD +${addLsd})`, 'success');
+
+            if (window.selectedRecordId) {
+                showModal('성공', '기록이 성공적으로 수정되었습니다.', 'success');
             } else {
                 showModal('성공', '새로운 공급 기록이 클라우드에 등록되었습니다.', 'success');
             }
@@ -693,6 +693,14 @@
             if (weedInput) weedInput.value = '0';
             if (cokeInput) cokeInput.value = '0';
             if (lsdInput) lsdInput.value = '0';
+
+            // 수정 모드 상태 해제 및 버튼 원복
+            window.selectedRecordId = null;
+            const submitBtn = document.getElementById('submit-btn');
+            if (submitBtn) {
+                submitBtn.className = "flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2";
+                submitBtn.innerHTML = '<i class="fa-solid fa-plus-circle"></i> 수량 자동 합산 추가';
+            }
         }
 
         function renderMyRecords() {
@@ -732,14 +740,24 @@
             });
         }
 
+        // 수정 버튼 클릭 시 수정 모드로 전환
         window.editRecord = function(id) {
             const rec = window.records.find(r => r.id === id);
             if (!rec) return;
+
+            window.selectedRecordId = id;
 
             document.getElementById('input-producer-id').value = rec.producerId;
             document.getElementById('input-weed').value = rec.weed;
             document.getElementById('input-cocaine').value = rec.cocaine;
             document.getElementById('input-lsd').value = rec.lsd;
+
+            // 버튼 디자인을 [수정 완료]로 변경
+            const submitBtn = document.getElementById('submit-btn');
+            if (submitBtn) {
+                submitBtn.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2";
+                submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> 수정 완료 (저장)';
+            }
 
             window.scrollTo({ top: 200, behavior: 'smooth' });
         }
@@ -749,7 +767,6 @@
             showModal('삭제 완료', '기록이 클라우드에서 삭제되었습니다.', 'info');
         }
 
-        // Dashboard & Rankings & Calculator Logic
         let lastCalculatedTotalItems = 0;
 
         function renderDashboard() {
@@ -867,14 +884,13 @@
             renderAllRecordsTable();
         }
 
-        // Settlement Calculator Functions
         window.calculatePayout = function() {
             const qtyInput = document.getElementById('calc-input-qty');
             const resultOutput = document.getElementById('calc-output-result');
             if (!qtyInput || !resultOutput) return;
 
             const qty = parseInt(qtyInput.value) || 0;
-            const totalKRW = qty * 200000; // 10,000 items = 20억 (rate 200,000 per item)
+            const totalKRW = qty * 200000;
             const totalBillion = totalKRW / 100000000;
 
             resultOutput.value = `${totalKRW.toLocaleString()}원 (${totalBillion.toFixed(2)}억)`;
@@ -972,7 +988,6 @@
             });
         }
 
-        // Team Member Modal Management
         window.openTeamMemberModal = function(id = null) {
             const modal = document.getElementById('team-modal');
             const title = document.getElementById('team-modal-title');
@@ -1039,7 +1054,6 @@
             showModal('삭제 완료', '팀원이 삭제되었습니다.', 'info');
         }
 
-        // Custom Week Modal Management
         window.openCustomWeekModal = function() {
             const modal = document.getElementById('week-modal');
             if (modal) {
@@ -1080,7 +1094,6 @@
             showModal('추가 완료', '새로운 주간이 클라우드에 추가되었습니다.', 'success');
         }
 
-        // Custom Toast Modal Notification
         window.showModal = function(title, message, type = 'info') {
             const modal = document.getElementById('custom-modal');
             const titleEl = document.getElementById('modal-title');
